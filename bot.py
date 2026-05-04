@@ -59,9 +59,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "⚡ Купить подписку":
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📅 7 дней – 250₽", callback_data="price_7_days")],
-            [InlineKeyboardButton("📅 30 дней – 500₽", callback_data="price_30_days")],
-            [InlineKeyboardButton("📅 60 дней – 1000₽", callback_data="price_60_days")]
+            [InlineKeyboardButton("📅 7 дней — 250₽", callback_data="price_7_days")],
+            [InlineKeyboardButton("📅 30 дней — 500₽", callback_data="price_30_days")],
+            [InlineKeyboardButton("📅 60 дней — 1000₽", callback_data="price_60_days")]
         ])
         await update.message.reply_text(
             "⚡️ Выберите тариф:",
