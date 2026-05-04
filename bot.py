@@ -20,20 +20,19 @@ PRICE_NAMES = {
     "60_days": "60"
 }
 
-# Курс USDT к RUB (примерный, обновляется при каждом запросе)
 def get_usdt_rate():
     try:
         response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=rub")
         data = response.json()
         return data["tether"]["rub"]
     except:
-        return 96.0  # запасной курс, если API недоступен
+        return 96.0
 
 SUPPORT_LINK = "https://t.me/pwnmeifucan"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
 AGREEMENT_LINK = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
 
-# ========== ГЛАВНОЕ МЕНЮ (Reply Keyboard с эмодзи) ==========
+# ========== ГЛАВНОЕ МЕНЮ ==========
 main_keyboard = ReplyKeyboardMarkup(
     [
         [KeyboardButton("⚡ Купить подписку")],
@@ -53,7 +52,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_keyboard
     )
 
-# ========== ОБРАБОТЧИК ТЕКСТОВЫХ КОМАНД (главное меню) ==========
+# ========== ОБРАБОТЧИК ТЕКСТОВЫХ КОМАНД ==========
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = str(update.effective_user.id)
@@ -64,33 +63,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📅 30 дней – 1000₽", callback_data="price_30_days")],
             [InlineKeyboardButton("📅 60 дней – 2000₽", callback_data="price_60_days")]
         ])
-        await update.message.reply_text(
-            "⚡️ Выберите тариф:",
-            reply_markup=keyboard
-        )
+        await update.message.reply_text("⚡️ Выберите тариф:", reply_markup=keyboard)
 
     elif text == "🔑 Мои ключи":
         keys = user_keys.get(user_id, [])
         if not keys:
-            await update.message.reply_text("😔 Ключей нет")
+            await update.message.reply_text("😔 Ключей нет.")
         else:
             msg = "Ваши ключи:\n" + "\n".join(keys)
             await update.message.reply_text(msg)
 
     elif text == "ℹ️ Info":
         info_text = (
-            "📋 Информация\n\n"
-            f'<a href="{PRIVACY_LINK}">📄 Политика конфиденциальности</a>\n'
-            f'<a href="{AGREEMENT_LINK}">📄 Пользовательское соглашение</a>\n\n'
-            f'<a href="{SUPPORT_LINK}">🆘 Поддержка</a>'
+            "<b>📋 Информация</b>\n\n"
+            f'📄 Политика конфиденциальности: {PRIVACY_LINK}\n'
+            f'📄 Пользовательское соглашение: {AGREEMENT_LINK}\n\n'
+            f'🆘 Поддержка: {SUPPORT_LINK}'
         )
-        await update.message.reply_text(
-            info_text,
-            parse_mode="HTML",
-            reply_markup=main_keyboard
-        )
+        await update.message.reply_text(info_text, parse_mode="HTML", disable_web_page_preview=True)
 
-# ========== INLINE КНОПКИ (выбор тарифа и оплата) ==========
+# ========== INLINE КНОПКИ ==========
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -104,19 +96,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_selected_plan[user_id] = (days, price)
 
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🤝 Через реселлера (RUB)", callback_data="pay_reseller")],
+            [InlineKeyboardButton("🤝 Через реселлера (RUB)", url=SUPPORT_LINK)],  # Прямая ссылка
             [InlineKeyboardButton("💎 CryptoBot (авто)", callback_data="pay_crypto")]
         ])
         await query.edit_message_text(
             f"💳 Подписка на период {days} дней — {price}₽\n\nВыберите способ оплаты:",
             reply_markup=keyboard
-        )
-
-    elif data == "pay_reseller":
-        days, price = user_selected_plan.get(user_id, ("0", 0))
-        await query.edit_message_text(
-            f"💳 Подписка на период {days} дней — {price}₽\n\n"
-            f"Свяжитесь с реселлером: {SUPPORT_LINK}"
         )
 
     elif data == "pay_crypto":
@@ -129,16 +114,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("✅ Я оплатил", callback_data="payment_done")]
         ])
         await query.edit_message_text(
-            f"💎 {usdt_amount} USDT (~{price} ₽) · {days} дн.\n\n"
-            f"Оплатите в CryptoBot и вернитесь.",
+            f"💎 {usdt_amount} USDT (~{price} ₽) · {days} дн.\n\nОплатите в CryptoBot и вернитесь.",
             reply_markup=keyboard
         )
 
     elif data == "payment_done":
-        await query.edit_message_text(
-            "⏳ Ожидаем подтверждение оплаты...\n\n"
-            "Как только платёж будет проверен, вы получите ключ."
-        )
+        await query.edit_message_text("⏳ Ожидаем подтверждение оплаты...\n\nКак только платёж будет проверен, вы получите ключ.")
 
 # ========== ЗАПУСК ==========
 def main():
