@@ -10,9 +10,9 @@ user_keys = {}
 user_selected_plan = {}
 
 PRICES = {
-    "7_days": 500,
-    "30_days": 1000,
-    "60_days": 2000
+    "7_days": 250,
+    "30_days": 500,
+    "60_days": 1000
 }
 PRICE_NAMES = {
     "7_days": "7",
@@ -59,9 +59,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "⚡ Купить подписку":
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📅 7 дней – 500₽", callback_data="price_7_days")],
-            [InlineKeyboardButton("📅 30 дней – 1000₽", callback_data="price_30_days")],
-            [InlineKeyboardButton("📅 60 дней – 2000₽", callback_data="price_60_days")]
+            [InlineKeyboardButton("📅 7 дней – 250₽", callback_data="price_7_days")],
+            [InlineKeyboardButton("📅 30 дней – 500₽", callback_data="price_30_days")],
+            [InlineKeyboardButton("📅 60 дней – 1000₽", callback_data="price_60_days")]
         ])
         await update.message.reply_text(
             "⚡️ Выберите тариф:",
@@ -79,9 +79,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "ℹ️ Info":
         info_text = (
             "<b>📋 Информация</b>\n\n"
-            f'▶️ <a href="{PRIVACY_LINK}">Политика конфиденциальности</a>\n'
-            f'▶️ <a href="{AGREEMENT_LINK}">Пользовательское соглашение</a>\n\n'
-            f'▶️ <a href="{SUPPORT_LINK}">Поддержка</a>'
+            f'📄 <a href="{PRIVACY_LINK}">Политика конфиденциальности</a>\n'
+            f'📄 <a href="{AGREEMENT_LINK}">Пользовательское соглашение</a>\n\n'
+            f'🆘 <a href="{SUPPORT_LINK}">Поддержка</a>'
         )
         await update.message.reply_text(
             info_text,
@@ -129,8 +129,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "payment_done":
         await query.edit_message_text(
-            "⏳ Ожидаем подтверждение оплаты...\n\n"
-            "Как только платёж будет проверен, вы получите ключ."
+            "Soon\n\n"
+            "bot py pidor_19"
         )
 
 # ========== ЗАПУСК ==========
