@@ -63,7 +63,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📅 30 дней – 1000₽", callback_data="price_30_days")],
             [InlineKeyboardButton("📅 60 дней – 2000₽", callback_data="price_60_days")]
         ])
-        await update.message.reply_text("⚡️ Выберите тариф:", reply_markup=keyboard)
+        await update.message.reply_text(
+            "⚡️ Выберите тариф:",
+            reply_markup=keyboard
+        )
 
     elif text == "🔑 Мои ключи":
         keys = user_keys.get(user_id, [])
@@ -76,11 +79,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "ℹ️ Info":
         info_text = (
             "<b>📋 Информация</b>\n\n"
-            f'📄 Политика конфиденциальности: {PRIVACY_LINK}\n'
-            f'📄 Пользовательское соглашение: {AGREEMENT_LINK}\n\n'
-            f'🆘 Поддержка: {SUPPORT_LINK}'
+            f'▶️ <a href="{PRIVACY_LINK}">Политика конфиденциальности</a>\n'
+            f'▶️ <a href="{AGREEMENT_LINK}">Пользовательское соглашение</a>\n\n'
+            f'▶️ <a href="{SUPPORT_LINK}">Поддержка</a>'
         )
-        await update.message.reply_text(info_text, parse_mode="HTML", disable_web_page_preview=True)
+        await update.message.reply_text(
+            info_text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,  # Убирает превью ссылок
+            reply_markup=main_keyboard
+        )
 
 # ========== INLINE КНОПКИ ==========
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,7 +104,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_selected_plan[user_id] = (days, price)
 
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🤝 Через реселлера (RUB)", url=SUPPORT_LINK)],  # Прямая ссылка
+            [InlineKeyboardButton("🤝 Через реселлера (RUB)", url=SUPPORT_LINK)],  # Теперь просто ссылка
             [InlineKeyboardButton("💎 CryptoBot (авто)", callback_data="pay_crypto")]
         ])
         await query.edit_message_text(
@@ -114,12 +122,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("✅ Я оплатил", callback_data="payment_done")]
         ])
         await query.edit_message_text(
-            f"💎 {usdt_amount} USDT (~{price} ₽) · {days} дн.\n\nОплатите в CryptoBot и вернитесь.",
+            f"💎 {usdt_amount} USDT (~{price} ₽) · {days} дн.\n\n"
+            f"Оплатите в CryptoBot и вернитесь.",
             reply_markup=keyboard
         )
 
     elif data == "payment_done":
-        await query.edit_message_text("⏳ Ожидаем подтверждение оплаты...\n\nКак только платёж будет проверен, вы получите ключ.")
+        await query.edit_message_text(
+            "⏳ Ожидаем подтверждение оплаты...\n\n"
+            "Как только платёж будет проверен, вы получите ключ."
+        )
 
 # ========== ЗАПУСК ==========
 def main():
