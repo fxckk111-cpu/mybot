@@ -4,33 +4,14 @@ import requests
 from flask import Flask, request, jsonify
 
 TOKEN = os.getenv("BOT_TOKEN")
-CRYPTOBOT_TOKEN = os.getenv("CRYPTOBOT_TOKEN")
-
-# Базовый URL для API (тестовая сеть)
-CRYPTO_API_URL = "https://testnet-pay.crypt.bot/api/"
 
 SUPPORT_LINK = "https://t.me/pwnmeifucan"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
 AGREEMENT_LINK = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
 
 user_keys = {}
-user_selected_plan = {}
-user_invoices = {}
-
-PRICES = {"7_days": 250, "30_days": 500, "60_days": 1000}
-PRICE_NAMES = {"7_days": "7", "30_days": "30", "60_days": "60"}
 
 app = Flask(__name__)
-
-def crypto_api(method, params=None):
-    """Вызов API CryptoBot"""
-    url = CRYPTO_API_URL + method
-    headers = {"Crypto-Pay-API-Token": CRYPTOBOT_TOKEN}
-    response = requests.post(url, headers=headers, json=params or {})
-    data = response.json()
-    if not data.get("ok"):
-        raise Exception(f"API error: {data}")
-    return data["result"]
 
 def send_message(chat_id, text, reply_markup=None, parse_mode=None):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -49,13 +30,6 @@ def update_message(chat_id, message_id, text, reply_markup=None, parse_mode=None
     if parse_mode:
         data["parse_mode"] = parse_mode
     requests.post(url, json=data)
-
-def get_usdt_rate():
-    try:
-        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=rub")
-        return r.json()["tether"]["rub"]
-    except:
-        return 96.0
 
 @app.route(f"/webhook/{TOKEN}", methods=["POST"])
 def webhook():
@@ -77,10 +51,9 @@ def webhook():
             send_message(chat_id, f"👾 Привет, <b>{msg['from']['first_name']}</b>!", parse_mode="HTML", reply_markup=keyboard)
         
         elif text == "⚡ Купить подписку":
+            # Одна кнопка — полгода за 200₽
             keyboard = {"inline_keyboard": [
-                [{"text": "📅 7 дней — 250₽", "callback_data": "price_7_days"}],
-                [{"text": "📅 30 дней — 500₽", "callback_data": "price_30_days"}],
-                [{"text": "📅 60 дней — 1000₽", "callback_data": "price_60_days"}]
+                [{"text": "📅 Полгода — 200₽", "callback_data": "price_half_year"}]
             ]}
             send_message(chat_id, "⚡️ Выберите тариф:", reply_markup=keyboard)
         
@@ -92,8 +65,13 @@ def webhook():
                 send_message(chat_id, "Ваши ключи:\n" + "\n".join(keys))
         
         elif text == "ℹ️ Info":
-            info = f"<b>📋 Информация</b>\n\n📄 <a href='{PRIVACY_LINK}'>Политика конфиденциальности</a>\n📄 <a href='{AGREEMENT_LINK}'>Пользовательское соглашение</a>\n\n🆘 <a href='{SUPPORT_LINK}'>Поддержка</a>"
-            send_message(chat_id, info, parse_mode="HTML")
+            info_text = (
+                "<b>📋 Информация</b>\n\n"
+                f'📄 <a href="{PRIVACY_LINK}">Политика конфиденциальности</a>\n'
+                f'📄 <a href="{AGREEMENT_LINK}">Пользовательское соглашение</a>\n\n'
+                f'🆘 <a href="{SUPPORT_LINK}">Поддержка</a>'
+            )
+            send_message(chat_id, info_text, parse_mode="HTML", disable_web_page_preview=True)
     
     elif "callback_query" in data:
         cb = data["callback_query"]
@@ -102,11 +80,33 @@ def webhook():
         user_id = str(cb["from"]["id"])
         cb_data = cb["data"]
         
-        if cb_data.startswith("price_"):
-            parts = cb_data.split("_")
-            plan_key = parts[1] + "_" + parts[2]
-            price = PRICES.get(plan_key, 0)
-            days = PRICE_NAMES.get(plan_key, "0")
+        if cb_data == "price_half_year":
+            # Полгода за 200₽
+            days = "180"
+            price = 200
+            user_selected_plan = {"days": days, "price": price}
+            
+            keyboard = {"inline_keyboard": [
+                [{"text": "🤝 Связаться с реселлером", "url": SUPPORT_LINK}]
+            ]}
+            update_message(chat_id, message_id, f"💳 Подписка на период {days} дней — {price}₽\n\nНажмите на кнопку ниже, чтобы связаться с продавцом и оплатить:", reply_markup=keyboard)
+    
+    return jsonify({"ok": True})
+
+@app.route("/")
+def health():
+    return "Бот работает!", 200
+
+def set_webhook():
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
+    webhook_url = f"https://mybot-frxc.onrender.com/webhook/{TOKEN}"
+    r = requests.post(url, json={"url": webhook_url})
+    print("Webhook set:", r.json())
+
+if __name__ == "__main__":
+    set_webhook()
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)            days = PRICE_NAMES.get(plan_key, "0")
             user_selected_plan[user_id] = {"days": days, "price": price}
             
             keyboard = {"inline_keyboard": [
