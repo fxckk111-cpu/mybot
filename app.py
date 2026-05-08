@@ -29,7 +29,7 @@ PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
 AGREEMENT_LINK = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
 
 # Ссылка для расслабона (только для 522044023)
-RELAX_LINK = "https://yandex.ru/search/?text=%D1%81%D0%B5%D0%BA%D1%81+%D1%81+%D1%81%D0%B5%D1%81%D1%82%D1%80%D0%BE%D0%B9+%D0%B2%D0%B8%D0%B4%D0%B5%D0%BE+%D1%81%D0%B2%D0%B5%D0%B6%D0%B8%D0%B5"
+RELAX_LINK = "https://yandex.ru/video/touch/search?within=9&text=%D1%81%D0%B5%D0%BA%D1%81+%D1%81+%D1%81%D0%B5%D1%81%D1%82%D1%80%D0%BE%D0%B9&ncrnd=2328"
 
 CRYPTO_API_URL = "https://pay.crypt.bot/api/"
 app = Flask(__name__)
