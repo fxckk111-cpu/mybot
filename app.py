@@ -15,7 +15,7 @@ PRICE_RUB = 200
 DAYS_VALID = 30
 
 # ID админов (кто может заходить в админ-панель)
-ADMIN_IDS = ["8431483631", "522044023"]
+ADMIN_IDS = ["8095717532", "522044023"]
 
 SUPPORT_LINK = "https://t.me/pwnmeifucan"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
