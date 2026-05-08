@@ -11,17 +11,19 @@ BOT_TOKEN = "8687695414:AAFX_eG3x05gQXahtMogvAh2JYfQuiwyWCM"
 CRYPTOBOT_TOKEN = "579104:AARyyU3ZKIVsb3hgHxYWnMYyVnQhzNASc71"
 GROUP_ID = -1003992937868
 
-PRICE_RUB = 200
-DAYS_VALID = 30
+# Тарифы (цена в рублях, дни)
+PRICE_PLANS = [
+    {"days": 7, "price": 50},
+    {"days": 30, "price": 100},
+    {"days": 60, "price": 200},
+    {"days": 90, "price": 300}
+]
 
 # ID админов
 ADMIN_IDS = ["8095717532", "522044023"]
 
-# Вечные подписки для админов
-ADMIN_SUBSCRIPTIONS = {
-    "522044023": {"uid": "0", "key": "ADMIN_0_FOREVER", "expire": 9999999999},
-    "8095717532": {"uid": "1", "key": "ADMIN_1_FOREVER", "expire": 9999999999}
-}
+# Ссылка реселлера
+RESELLER_LINK = "https://t.me/realsapphire"
 
 SUPPORT_LINK = "https://t.me/pwnmeifucan"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
@@ -31,10 +33,10 @@ AGREEMENT_LINK = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
 CRYPTO_API_URL = "https://pay.crypt.bot/api/"
 app = Flask(__name__)
 
-# База пользователей (обычных)
+# База пользователей
 users_db = {}
 
-# Счётчик для UID обычных пользователей (начинаем с 2)
+# Счётчик для UID обычных пользователей
 next_uid = 2
 
 # Временные данные для админ-действий
@@ -56,6 +58,20 @@ def get_user_info(user_id):
             return data["result"].get("username"), data["result"].get("first_name")
     except:
         pass
+    return None, None
+
+def resolve_target(input_text):
+    """Определяет, является ли ввод @username или id"""
+    if input_text.startswith("@"):
+        username = input_text[1:]
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat"
+        r = requests.get(url, params={"chat_id": input_text})
+        data = r.json()
+        if data.get("ok"):
+            return data["result"]["id"], username
+        return None, None
+    elif input_text.isdigit():
+        return int(input_text), None
     return None, None
 
 def kick_from_group(chat_id, user_id):
@@ -105,12 +121,12 @@ def get_usdt_rate():
     except:
         return 96.0
 
-def create_invite_link(chat_id, user_id):
+def create_invite_link(chat_id, user_id, days=30):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/createChatInviteLink"
     params = {
         "chat_id": chat_id,
         "member_limit": 1,
-        "expire_date": int((datetime.now() + timedelta(days=DAYS_VALID)).timestamp())
+        "expire_date": int((datetime.now() + timedelta(days=days)).timestamp())
     }
     r = requests.post(url, json=params)
     data = r.json()
@@ -119,24 +135,21 @@ def create_invite_link(chat_id, user_id):
     return None
 
 def get_main_keyboard(is_admin=False):
-    keyboard = [["⚡ Купить чит"], ["🔑 Мои ключи"], ["ℹ️ Info"]]
     if is_admin:
-        keyboard.append(["👑 Админ панель"])
+        keyboard = [["🔑 Мои ключи"], ["👑 Админ панель"]]
+    else:
+        keyboard = [["⚡ Купить чит"], ["🔑 Мои ключи"], ["ℹ️ Информация"]]
     return {"keyboard": keyboard, "resize_keyboard": True}
 
 def get_user_subscription_info(user_id):
-    """Возвращает информацию о подписке пользователя (включая админов)"""
     user_id_str = str(user_id)
-    
-    # Для админов — вечная подписка
-    if user_id_str in ADMIN_SUBSCRIPTIONS:
-        return ADMIN_SUBSCRIPTIONS[user_id_str]
-    
-    # Для обычных пользователей
     if user_id_str in users_db and "key" in users_db[user_id_str]:
         return users_db[user_id_str]
-    
     return None
+
+def send_back_button(chat_id, text, back_callback):
+    keyboard = {"inline_keyboard": [[{"text": "🔙 Назад", "callback_data": back_callback}]]}
+    send_message(chat_id, text, reply_markup=keyboard, parse_mode="HTML")
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 def send_admin_panel(chat_id, first_name):
@@ -145,20 +158,19 @@ def send_admin_panel(chat_id, first_name):
             [{"text": "😒 Забрать подписку", "callback_data": "admin_revoke"}],
             [{"text": "🤝 Передать подписку", "callback_data": "admin_transfer"}],
             [{"text": "❄ Заморозить подписку", "callback_data": "admin_freeze"}],
-            [{"text": "🎁 Выдать подписку", "callback_data": "admin_grant"}]
+            [{"text": "🎁 Выдать подписку", "callback_data": "admin_grant"}],
+            [{"text": "🔙 Назад в меню", "callback_data": "back_to_menu"}]
         ]
     }
     send_message(chat_id, f"👋 Привет, <b>{first_name}</b>!\n😂 Что хочешь сделать?", parse_mode="HTML", reply_markup=keyboard)
 
 def process_admin_action(chat_id, admin_name, action, target_id, target_username, extra_data=None):
-    """Обрабатывает действия админа с пользователем"""
     emojis = {"revoke": "😒", "transfer": "🤝", "freeze": "❄", "grant": "🎁"}
     emoji = emojis.get(action, "⚠️")
     action_names = {"revoke": "забрал", "transfer": "передал", "freeze": "заморозил", "grant": "выдал"}
     
     target_id_str = str(target_id)
     
-    # Запрещаем действия над админами
     if target_id_str in ADMIN_IDS:
         send_message(chat_id, "❌ Нельзя совершать действия над другим админом!")
         return
@@ -191,7 +203,7 @@ def process_admin_action(chat_id, admin_name, action, target_id, target_username
             user_data = users_db[str(from_id)].copy()
             users_db[str(to_id)] = user_data
             del users_db[str(from_id)]
-            new_link = create_invite_link(GROUP_ID, to_id)
+            new_link = create_invite_link(GROUP_ID, to_id, user_data.get("days", 30))
             if new_link:
                 users_db[str(to_id)]["invite_link"] = new_link
             send_message(from_id, f"⚠️ <b>{target_username or from_id}</b> твоя подписка была передана админом <b>{admin_name}</b>: @{extra_data.get('to_username', to_id)}", parse_mode="HTML")
@@ -201,29 +213,25 @@ def process_admin_action(chat_id, admin_name, action, target_id, target_username
     
     elif action == "grant":
         days = extra_data.get("days", 30)
-        sub_name = f"{days} дней" if days < 9999 else "навсегда"
+        sub_name = f"{days} дней"
         key = gen_key()
         
         global next_uid
         uid = next_uid
         next_uid += 1
         
-        # Для вечной подписки ставим огромный срок
-        if days >= 9999:
-            expire = 9999999999
-        else:
-            expire = int((datetime.now() + timedelta(days=days)).timestamp())
-        
-        invite_link = create_invite_link(GROUP_ID, target_id)
+        expire = int((datetime.now() + timedelta(days=days)).timestamp())
+        invite_link = create_invite_link(GROUP_ID, target_id, days)
         users_db[target_id_str] = {
             "uid": uid,
             "key": key,
             "expire": expire,
             "subscription_name": sub_name,
+            "days": days,
             "invite_link": invite_link,
             "step": "done"
         }
-        expire_str = datetime.fromtimestamp(expire).strftime("%d.%m.%Y") if days < 9999 else "никогда"
+        expire_str = datetime.fromtimestamp(expire).strftime("%d.%m.%Y")
         send_message(target_id, 
             f"🎉 <b>{target_username or target_id_str}</b>, поздравляю! Тебе <b>{admin_name}</b> выдал подписку на {sub_name}\n\n"
             f"👾 <b>{uid}</b>\n"
@@ -255,44 +263,30 @@ def webhook():
         elif text == "👑 Админ панель" and is_admin:
             send_admin_panel(chat_id, msg['from']['first_name'])
 
-        elif text == "⚡ Купить чит":
-            try:
-                rate = get_usdt_rate()
-                amount = round(PRICE_RUB / rate, 2)
-                inv = crypto_api("createInvoice", {
-                    "asset": "USDT",
-                    "amount": str(amount),
-                    "description": f"Подписка на {DAYS_VALID} дней"
-                })
-                users_db[user_id] = {
-                    "invoice_id": inv["invoice_id"],
-                    "step": "wait_payment"
-                }
-                kb = {"inline_keyboard": [
-                    [{"text": "💎 Оплатить в CryptoBot", "url": inv["bot_invoice_url"]}],
-                    [{"text": "✅ Я оплатил", "callback_data": "check_payment"}]
-                ]}
-                send_message(chat_id, f"💳 {amount} USDT (~{PRICE_RUB} ₽) · {DAYS_VALID} дн.\n\nОплатите и нажмите «Я оплатил».", reply_markup=kb)
-            except Exception as e:
-                send_message(chat_id, f"❌ Ошибка: {e}\nОбратитесь к @pwnmeifucan")
+        elif text == "⚡ Купить чит" and not is_admin:
+            # Показываем тарифы
+            keyboard = {"inline_keyboard": []}
+            for plan in PRICE_PLANS:
+                keyboard["inline_keyboard"].append([{"text": f"📅 {plan['days']} дней — {plan['price']}₽", "callback_data": f"plan_{plan['days']}_{plan['price']}"}])
+            keyboard["inline_keyboard"].append([{"text": "🔙 Назад", "callback_data": "back_to_menu"}])
+            send_message(chat_id, "⚡️ Выберите тариф:", reply_markup=keyboard)
 
         elif text == "🔑 Мои ключи":
             sub_info = get_user_subscription_info(user_id)
             if not sub_info:
                 send_message(chat_id, "😔 Ключей нет.")
             else:
-                expire_str = datetime.fromtimestamp(sub_info["expire"]).strftime("%d.%m.%Y") if sub_info["expire"] < 999999999 else "никогда"
+                expire_str = datetime.fromtimestamp(sub_info["expire"]).strftime("%d.%m.%Y")
                 msg_text = (
                     f"👾 <b>{sub_info['uid']}</b>\n"
                     f"🔑 <b>Ключ:</b> <code>{sub_info['key']}</code>\n"
                     f"⏳ <i>Ключ истекает: {expire_str}</i>"
                 )
-                # Для админов добавляем ссылку в группу, если есть
                 if "invite_link" in sub_info and sub_info.get("invite_link"):
                     msg_text += f"\n\n🔗 <a href='{sub_info['invite_link']}'>Ссылка в группу с покупателями</a>"
                 send_message(chat_id, msg_text, parse_mode="HTML")
 
-        elif text == "ℹ️ Info":
+        elif text == "ℹ️ Информация" and not is_admin:
             info = f"<b>📋 Информация</b>\n\n📄 <a href='{PRIVACY_LINK}'>Политика конфиденциальности</a>\n📄 <a href='{AGREEMENT_LINK}'>Пользовательское соглашение</a>\n\n🆘 <a href='{SUPPORT_LINK}'>Поддержка</a>"
             send_message(chat_id, info, parse_mode="HTML", disable_web_page_preview=True)
 
@@ -304,6 +298,115 @@ def webhook():
         cb_data = cb["data"]
         is_admin = user_id in ADMIN_IDS
 
+        # Кнопка "Назад в меню"
+        if cb_data == "back_to_menu":
+            delete_message(chat_id, message_id)
+            send_message(chat_id, f"👾 Привет, <b>{cb['from']['first_name']}</b>!", parse_mode="HTML", reply_markup=get_main_keyboard(is_admin))
+            return jsonify({"ok": True})
+
+        # Обработка выбора тарифа
+        if cb_data.startswith("plan_"):
+            parts = cb_data.split("_")
+            days = int(parts[1])
+            price = int(parts[2])
+            
+            try:
+                rate = get_usdt_rate()
+                amount = round(price / rate, 2)
+                inv = crypto_api("createInvoice", {
+                    "asset": "USDT",
+                    "amount": str(amount),
+                    "description": f"Подписка на {days} дней"
+                })
+                users_db[user_id] = {
+                    "invoice_id": inv["invoice_id"],
+                    "days": days,
+                    "price": price,
+                    "step": "wait_payment"
+                }
+                kb = {"inline_keyboard": [
+                    [{"text": "🤝 Через реселлера", "url": RESELLER_LINK}],
+                    [{"text": "💎 CryptoBot", "callback_data": f"crypto_pay_{days}_{price}"}]
+                ]}
+                update_message(chat_id, message_id, f"💳 Подписка на {days} дней — {price}₽\n\nВыберите способ оплаты:", reply_markup=kb)
+            except Exception as e:
+                update_message(chat_id, message_id, f"❌ Ошибка: {e}\nОбратитесь к @pwnmeifucan")
+            return jsonify({"ok": True})
+
+        # Обработка CryptoBot оплаты
+        if cb_data.startswith("crypto_pay_"):
+            parts = cb_data.split("_")
+            days = int(parts[2])
+            price = int(parts[3])
+            
+            rate = get_usdt_rate()
+            amount = round(price / rate, 2)
+            
+            try:
+                inv = crypto_api("createInvoice", {
+                    "asset": "USDT",
+                    "amount": str(amount),
+                    "description": f"Подписка на {days} дней"
+                })
+                users_db[user_id] = {
+                    "invoice_id": inv["invoice_id"],
+                    "days": days,
+                    "price": price,
+                    "step": "wait_payment"
+                }
+                kb = {"inline_keyboard": [
+                    [{"text": "💎 Оплатить в CryptoBot", "url": inv["bot_invoice_url"]}],
+                    [{"text": "✅ Я оплатил", "callback_data": f"check_payment_{days}_{price}"}]
+                ]}
+                update_message(chat_id, message_id, f"💳 {amount} USDT (~{price} ₽) · {days} дн.\n\nОплатите и нажмите «Я оплатил».", reply_markup=kb)
+            except Exception as e:
+                update_message(chat_id, message_id, f"❌ Ошибка: {e}")
+            return jsonify({"ok": True})
+
+        # Проверка оплаты
+        if cb_data.startswith("check_payment_"):
+            parts = cb_data.split("_")
+            days = int(parts[2])
+            price = int(parts[3])
+            
+            if user_id not in users_db or users_db[user_id].get("step") != "wait_payment":
+                update_message(chat_id, message_id, "❌ Нет активного счета. Начните новую покупку.")
+                return
+
+            invoice_id = users_db[user_id]["invoice_id"]
+            try:
+                inv = crypto_api("getInvoices", {"invoice_ids": [invoice_id]})
+                if inv["items"][0]["status"] == "paid":
+                    uid = next_uid
+                    next_uid += 1
+                    key = gen_key()
+                    expire = int((datetime.now() + timedelta(days=days)).timestamp())
+                    invite_link = create_invite_link(GROUP_ID, user_id, days)
+                    users_db[user_id] = {
+                        "uid": uid,
+                        "key": key,
+                        "expire": expire,
+                        "subscription_name": f"{days} дней",
+                        "days": days,
+                        "invite_link": invite_link,
+                        "step": "done"
+                    }
+                    expire_str = datetime.fromtimestamp(expire).strftime("%d.%m.%Y")
+                    msg = (
+                        f"✅ Оплата подтверждена!\n\n"
+                        f"👾 <b>{uid}</b>\n"
+                        f"🔑 <b>Ключ:</b> <code>{key}</code>\n"
+                        f"⏳ <i>Ключ истекает: {expire_str}</i>\n\n"
+                        f"🔗 <a href='{invite_link}'>Ссылка в группу с покупателями</a>"
+                    )
+                    update_message(chat_id, message_id, msg, parse_mode="HTML")
+                else:
+                    update_message(chat_id, message_id, "⏳ Платёж ещё не подтверждён. Попробуйте позже.")
+            except Exception as e:
+                update_message(chat_id, message_id, f"❌ Ошибка проверки: {e}")
+            return jsonify({"ok": True})
+
+        # Админ-панель
         if cb_data.startswith("admin_"):
             if not is_admin:
                 return jsonify({"ok": True})
@@ -317,11 +420,13 @@ def webhook():
             
             update_message(chat_id, message_id, 
                 f"{emoji} Хорошо, <b>{cb['from']['first_name']}</b>! {action_names[action]} так {action_names[action]}!\n"
-                f"Напишите @username пользователя, которому нужно {action_names[action]}",
+                f"Напишите @username или id пользователя, которому нужно {action_names[action]}.\n"
+                f"⚠️ Пожалуйста, используйте формат @username или id (пример id: 123456789)",
                 parse_mode="HTML")
             return jsonify({"ok": True})
 
-        elif cb_data.startswith("confirm_"):
+        # Подтверждение действия
+        if cb_data.startswith("confirm_"):
             parts = cb_data.split("_")
             action = parts[1]
             
@@ -340,14 +445,16 @@ def webhook():
             
             return jsonify({"ok": True})
 
-        elif cb_data.startswith("cancel_"):
+        # Отмена действия
+        if cb_data.startswith("cancel_"):
             if user_id in admin_actions:
                 del admin_actions[user_id]
             delete_message(chat_id, message_id)
             send_message(chat_id, "❌ Действие отменено", reply_markup=get_main_keyboard(is_admin))
             return jsonify({"ok": True})
 
-        elif cb_data.startswith("period_"):
+        # Выбор периода для выдачи подписки
+        if cb_data.startswith("period_"):
             if user_id in admin_actions and admin_actions[user_id].get("step") == "wait_period":
                 days_map = {"1hour": 1/24, "1day": 1, "7days": 7, "1month": 30, "6months": 180, "12months": 365, "forever": 9999}
                 period_key = cb_data.replace("period_", "")
@@ -367,42 +474,6 @@ def webhook():
             
             return jsonify({"ok": True})
 
-        elif cb_data == "check_payment":
-            if user_id not in users_db or users_db[user_id].get("step") != "wait_payment":
-                update_message(chat_id, message_id, "❌ Нет активного счета. Начните новую покупку.")
-                return
-
-            invoice_id = users_db[user_id]["invoice_id"]
-            try:
-                inv = crypto_api("getInvoices", {"invoice_ids": [invoice_id]})
-                if inv["items"][0]["status"] == "paid":
-                    uid = next_uid
-                    next_uid += 1
-                    key = gen_key()
-                    expire = int((datetime.now() + timedelta(days=DAYS_VALID)).timestamp())
-                    invite_link = create_invite_link(GROUP_ID, user_id)
-                    users_db[user_id] = {
-                        "uid": uid,
-                        "key": key,
-                        "expire": expire,
-                        "subscription_name": f"{DAYS_VALID} дней",
-                        "invite_link": invite_link,
-                        "step": "done"
-                    }
-                    expire_str = datetime.fromtimestamp(expire).strftime("%d.%m.%Y")
-                    msg = (
-                        f"✅ Оплата подтверждена!\n\n"
-                        f"👾 <b>{uid}</b>\n"
-                        f"🔑 <b>Ключ:</b> <code>{key}</code>\n"
-                        f"⏳ <i>Ключ истекает: {expire_str}</i>\n\n"
-                        f"🔗 <a href='{invite_link}'>Ссылка в группу с покупателями</a>"
-                    )
-                    update_message(chat_id, message_id, msg, parse_mode="HTML")
-                else:
-                    update_message(chat_id, message_id, "⏳ Платёж ещё не подтверждён. Попробуйте позже.")
-            except Exception as e:
-                update_message(chat_id, message_id, f"❌ Ошибка проверки: {e}")
-
     # Обработка текстовых сообщений для админ-действий
     if "message" in data and "text" in data["message"]:
         msg = data["message"]
@@ -414,22 +485,10 @@ def webhook():
             action_data = admin_actions[user_id]
             action = action_data.get("action")
             
-            target_username = None
-            target_id = None
+            target_id, target_username = resolve_target(text)
             
-            # Принимаем только @username
-            if text.startswith("@"):
-                target_username = text[1:]
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat"
-                r = requests.get(url, params={"chat_id": text})
-                data_resp = r.json()
-                if data_resp.get("ok"):
-                    target_id = data_resp["result"]["id"]
-                else:
-                    send_message(chat_id, "❌ Не удалось найти пользователя с таким username")
-                    return jsonify({"ok": True})
-            else:
-                send_message(chat_id, "❌ Пожалуйста, используйте формат @username (например, @pwnmeifucan)")
+            if target_id is None:
+                send_message(chat_id, "❌ Не удалось найти пользователя.\n⚠️ Пожалуйста, используйте формат @username или id (пример id: 123456789)")
                 return jsonify({"ok": True})
             
             admin_actions[user_id]["target_id"] = target_id
@@ -439,7 +498,7 @@ def webhook():
             emojis = {"revoke": "😒", "transfer": "🤝", "freeze": "❄", "grant": "🎁"}
             emoji = emojis.get(action, "⚠️")
             action_names = {"revoke": "забрать", "transfer": "передать", "freeze": "заморозить", "grant": "выдать"}
-            target_display = f"@{target_username}"
+            target_display = f"@{target_username}" if target_username else f"id: {target_id}"
             
             keyboard = {
                 "inline_keyboard": [
