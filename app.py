@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 import os
 
 # ========== НАСТРОЙКИ ==========
-BOT_TOKEN = "8687695414:AAFX_eG3x05gQXahtMogvAh2JYfQuiwyWCM"
+BOT_TOKEN = "8118527645:AAEDYUiN4nNE9dCOMA3ozybMe1lvLCVr5xc"
 CRYPTOBOT_TOKEN = "579104:AARyyU3ZKIVsb3hgHxYWnMYyVnQhzNASc71"  # Твой токен от @CryptoBot
 RESELLER_LINK = "https://t.me/realsapphire"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
