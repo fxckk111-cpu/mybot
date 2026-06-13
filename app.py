@@ -1,12 +1,11 @@
 import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-import os
 import random
 import string
 
 # ========== НАСТРОЙКИ ==========
-BOT_TOKEN = "8687695414:AAFX_eG3x05gQXahtMogvAh2JYfQuiwyWCM"
+BOT_TOKEN = "8118527645:AAEDYUiN4nNE9dCOMA3ozybMe1lvLCVr5xc"
 RESELLER_LINK = "https://t.me/realsapphire"
 PRIVACY_LINK = "https://telegra.ph/Politika-konfidencialnosti-04-01-26"
 AGREEMENT_LINK = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
@@ -88,7 +87,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	data = query.data
 	chat_id = query.message.chat.id
 	message_id = query.message.message_id
-	user_id = str(update.effective_user.id)
 
 	if data == "cancel":
 		await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -123,7 +121,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		)
 
 # ========== АДМИНСКАЯ КОМАНДА ДЛЯ ВЫДАЧИ КЛЮЧЕЙ ==========
-# Только для админа 8915153014
 async def givekey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	user_id = str(update.effective_user.id)
 	
@@ -137,8 +134,7 @@ async def givekey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		if len(args) < 2:
 			await update.message.reply_text(
 				"❌ Использование: /givekey @username дни\n"
-				"Пример: /givekey @realsapphire 30\n\n"
-				"После этого пользователь получит ключ и он сохранится в «Мои ключи»."
+				"Пример: /givekey @realsapphire 30"
 			)
 			return
 		
@@ -148,7 +144,6 @@ async def givekey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		if username.startswith("@"):
 			username = username[1:]
 		
-		# Получаем user_id по username
 		try:
 			chat = await context.bot.get_chat(f"@{username}")
 			target_id = str(chat.id)
@@ -156,15 +151,12 @@ async def givekey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			await update.message.reply_text(f"❌ Не удалось найти пользователя @{username}")
 			return
 		
-		# Генерируем ключ
 		key = generate_key()
 		
-		# Сохраняем ключ
 		if target_id not in user_keys:
 			user_keys[target_id] = []
 		user_keys[target_id].append(f"{days} дней — {key}")
 		
-		# Отправляем пользователю
 		await context.bot.send_message(
 			chat_id=target_id,
 			text=f"🎉 <b>Вам выдан ключ!</b>\n\n"
@@ -174,7 +166,6 @@ async def givekey(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			parse_mode="HTML"
 		)
 		
-		# Отправляем админу подтверждение
 		await update.message.reply_text(f"✅ Ключ выдан пользователю @{username} на {days} дней")
 		
 	except Exception as e:
